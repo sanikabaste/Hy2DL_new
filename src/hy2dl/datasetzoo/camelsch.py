@@ -98,8 +98,12 @@ class CAMELS_CH(BaseDataset):
         path_timeseries = (
             self.cfg.path_data / "timeseries" / "observation_based" / f"CAMELS_CH_obs_based_{gauge_id}.csv"
         )
+        # # load time series
+        # df = pd.read_csv(
+        #     path_timeseries, index_col="date", parse_dates=["date"], dtype=defaultdict(lambda: "float32", date=str)
+        # )
         # load time series
-        df = pd.read_csv(
-            path_timeseries, index_col="date", parse_dates=["date"], dtype=defaultdict(lambda: "float32", date=str)
-        )
+        df = pd.read_csv(path_timeseries)
+        df = df.set_index('date')
+        df.index = pd.to_datetime(df.index, format="%Y-%m-%d")
         return df

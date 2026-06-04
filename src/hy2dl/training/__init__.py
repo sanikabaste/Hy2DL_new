@@ -4,6 +4,7 @@ from hy2dl.utils.config import Config
 # Define the registry mapping
 loss_registry = {
     "nll": loss_module.NLL,
+    "crps": loss_module.CRPS,
     "nse_basin_averaged": loss_module.NSEBasinAveraged,
     "weighted_mse": loss_module.WeightedMSE,
 }

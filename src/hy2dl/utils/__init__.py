@@ -4,6 +4,7 @@ import hy2dl.utils.distributions as distribution_module
 distribution_registry = {
     "gaussian": distribution_module.GaussianMixture,
     "laplacian": distribution_module.AsymmetricLaplaceMixture,
+    "logistic": distribution_module.LogisticMixture,
 }
 
 
