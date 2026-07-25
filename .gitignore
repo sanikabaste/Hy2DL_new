@@ -6,6 +6,9 @@ experiments
 results/*
 benchmarks/*/
 
+# Large datasets (fetch separately, do not commit)
+data/Caravan_all/
+
 # File extensions
 **/*.pyc
 **/*.h5

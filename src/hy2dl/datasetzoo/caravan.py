@@ -59,8 +59,14 @@ class CARAVAN(BaseDataset):
         """
         # files that contain the attributes
         data_dir = self.cfg.path_data
-        # Take care of the subset directories in Caravans
-        subdataset_dirs = [d for d in (data_dir / "attributes").glob("*") if d.is_dir()]
+
+        # Only load the sub-dataset directories that are actually needed for the requested basins. Caravan can
+        # bundle dozens of sub-datasets (grdc, hysets, camels*, ...), each with thousands of basins, so scanning
+        # all of them regardless of what is requested does not scale.
+        required_subdatasets = {gauge.split("_")[0].lower() for gauge in self.gauge_id}
+        subdataset_dirs = [
+            d for d in (data_dir / "attributes").glob("*") if d.is_dir() and d.name.lower() in required_subdatasets
+        ]
 
         # Load all required attribute files.
         dfs = []
@@ -70,6 +76,10 @@ class CARAVAN(BaseDataset):
             for csv_file in subdataset_dir.glob("*.csv"):  # Loop over each csv file
                 dfr_list.append(pd.read_csv(csv_file, index_col="gauge_id"))
             dfr = pd.concat(dfr_list, axis=1)
+            # Some sub-datasets ship the same attribute in more than one file (e.g. grdc repeats "country" across
+            # attributes_other and attributes_additional). Keep the first occurrence to avoid duplicate columns,
+            # which break the concat across sub-datasets below.
+            dfr = dfr.loc[:, ~dfr.columns.duplicated()]
             dfs.append(dfr)
 
         # Merge all DataFrames along the basin index.
