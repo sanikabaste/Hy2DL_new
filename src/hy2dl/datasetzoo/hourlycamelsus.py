@@ -1,5 +1,4 @@
 # import necessary packages
-from collections import defaultdict
 from typing import Optional
 
 import numpy as np
@@ -102,10 +101,10 @@ class Hourly_CAMELS_US(CAMELS_US):
 
         """
         path_timeseries = self.cfg.path_data / "hourly" / f"{forcing}" / f"{gauge_id}_hourly_nldas.csv"
-        # load time series
-        df = pd.read_csv(
-            path_timeseries, index_col=["date"], parse_dates=["date"], dtype=defaultdict(lambda: "float32", date=str)
-        )
+        # load time series. Note: dtype is not forced here, since doing so (even indirectly through a defaultdict
+        # covering all columns) suppresses parse_dates in pandas >=3, leaving the index as strings.
+        df = pd.read_csv(path_timeseries, index_col=["date"], parse_dates=["date"])
+        df = df.astype("float32")
 
         return df
 

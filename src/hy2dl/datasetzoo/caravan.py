@@ -1,5 +1,4 @@
 # import necessary packages
-from collections import defaultdict
 from typing import Optional
 
 import pandas as pd
@@ -121,7 +120,9 @@ class CARAVAN(BaseDataset):
         # Get the subdataset name from the basin string.
         subdataset_name = basin.split("_")[0].lower()
         filepath = data_dir / "timeseries" / "csv" / subdataset_name / f"{basin}.csv"
-        df = pd.read_csv(
-            filepath, index_col="date", parse_dates=["date"], dtype=defaultdict(lambda: "float32", date=str)
-        )
+        # Note: dtype is intentionally not passed to read_csv here. Forcing a dtype on the "date" column (even
+        # indirectly through a defaultdict covering all columns) suppresses parse_dates in pandas >=3, leaving the
+        # index as strings and breaking downstream .loc[start:end] datetime slicing.
+        df = pd.read_csv(filepath, index_col="date", parse_dates=["date"])
+        df = df.astype("float32")
         return df

@@ -1,5 +1,4 @@
 # import necessary packages
-from collections import defaultdict
 from typing import Optional
 
 import pandas as pd
@@ -98,8 +97,8 @@ class CAMELS_DE(BaseDataset):
 
         """
         path_timeseries = self.cfg.path_data / "timeseries" / f"CAMELS_DE_hydromet_timeseries_{gauge_id}.csv"
-        # load time series
-        df = pd.read_csv(
-            path_timeseries, index_col="date", parse_dates=["date"], dtype=defaultdict(lambda: "float32", date=str)
-        )
+        # load time series. Note: dtype is not forced here, since doing so (even indirectly through a defaultdict
+        # covering all columns) suppresses parse_dates in pandas >=3, leaving the index as strings.
+        df = pd.read_csv(path_timeseries, index_col="date", parse_dates=["date"])
+        df = df.astype("float32")
         return df
