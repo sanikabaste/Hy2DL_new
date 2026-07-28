@@ -1,0 +1,51 @@
+experiment_name: LSTM_CARAVAN_safe
+path_data: ../data/Caravan_all
+path_entities_training: ../data/basin_id/basins_caravan_safe.txt
+path_entities_validation: ../data/basin_id/basins_caravan_safe.txt
+path_entities_testing: ../data/basin_id/basins_caravan_safe.txt
+dynamic_input:
+- total_precipitation_sum
+- temperature_2m_mean
+- snow_depth_water_equivalent_mean
+target:
+- streamflow
+static_input:
+- area
+- ele_mt_sav
+- slp_dg_sav
+- snd_pc_sav
+- slt_pc_sav
+- cly_pc_sav
+- for_pc_sse
+- crp_pc_sse
+- pst_pc_sse
+- wet_pc_sg1
+- gla_pc_sse
+- lka_pc_sse
+- urb_pc_sse
+training_period:
+- '1950-01-01'
+- '2005-12-31'
+validation_period:
+- '2006-01-01'
+- '2010-12-31'
+testing_period:
+- '2011-01-01'
+- '2015-12-31'
+seq_length: 365
+hidden_size: 256
+batch_size_training: 256
+batch_size_evaluation: 1024
+epochs: 30
+dropout_rate: 0.4
+learning_rate:
+  1: 0.001
+  10: 0.0005
+  20: 0.0001
+validate_every: 1
+device: gpu
+num_workers: 4
+random_seed: 1
+dataset: Caravan
+model: cudalstm
+initial_forget_bias: 3.0
