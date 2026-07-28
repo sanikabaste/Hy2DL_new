@@ -874,7 +874,7 @@ class BaseDataset(Dataset):
             self.ds_ts.to_zarr(save_path, mode="w", consolidated=True)
             self.cfg.logger.info(f"Dataset saved at: {save_path}")
 
-    def _create_zarr_dataset(self):
+    def _create_zarr_dataset(self, gauge_id_batch: Optional[list[str]] = None, consolidate: bool = True):
         """Creates the dataset and writes it directly to a zarr file on disk.
 
         This function reads and processes the data for each entity (e.g., catchment) and stores the results,
@@ -890,14 +890,38 @@ class BaseDataset(Dataset):
         Note: This function is designed to handle datasets larger than available RAM by writing the processed data
         sequentially to disk.
 
+        Parameters
+        ----------
+        gauge_id_batch : list[str], optional
+            If provided, only process and write these gauge_ids into the zarr store, instead of the full
+            `self.gauge_id` list. The zarr store is still sized/shaped for the full `self.gauge_id` list (created
+            on the first call, reused on subsequent ones), so this allows filling it in over multiple calls without
+            ever needing every entity's raw source data available at once - useful when the raw data for the full
+            entity list does not fit on disk simultaneously. Call this method repeatedly with successive batches
+            (downloading/making available only the current batch's raw source data each time), in an order where
+            the first batch includes `self.gauge_id[0]`, since that entity's data is used to determine the zarr
+            structure. Pass `consolidate=False` for every call except the last.
+        consolidate : bool, default=True
+            Whether to consolidate the zarr's metadata after writing. Leave as True for a normal, non-batched call.
+            When processing in batches, set this to False for every call except the last: consolidation is a
+            read-optimization step that only needs to run once, after all batches have been written.
+
         """
-        self.cfg.logger.info("Creating zarr dataset...")
-        # Initialize zarr structure to store the processed results
-        self._initialize_zarr()
+        ids_to_process = gauge_id_batch if gauge_id_batch is not None else self.gauge_id
+        self.cfg.logger.info(
+            "Creating zarr dataset..."
+            if gauge_id_batch is None
+            else f"Writing batch of {len(ids_to_process)} entities to zarr dataset..."
+        )
+
+        # Initialize zarr structure to store the processed results. If it already exists (e.g. from an earlier
+        # batch in this same run), reuse it instead of overwriting previously-written batches.
+        if not Path(self.path_dataset).exists():
+            self._initialize_zarr()
 
         # Create array of entities' index (used later to write the data in the right position in the zarr)
         zarr_ids = zarr.open(self.path_dataset, mode="r")["gauge_id"][:]
-        gauge_idx = [np.where(zarr_ids == id)[0][0] for id in self.gauge_id]
+        gauge_idx = [np.where(zarr_ids == id)[0][0] for id in ids_to_process]
 
         # Process each entity using dask
         with (
@@ -906,15 +930,16 @@ class BaseDataset(Dataset):
             ) as cluster,
             Client(cluster) as client,
         ):
-            futures = client.map(self._write_df_to_zarr, self.gauge_id, gauge_idx)  # Run function
+            futures = client.map(self._write_df_to_zarr, ids_to_process, gauge_idx)  # Run function
             # Monitor progress
             for future in tqdm(
                 as_completed(futures), total=len(futures), desc="Processing gauges", unit="entity", ascii=True
             ):
                 future.result()
 
-        zarr.consolidate_metadata(self.path_dataset)  # consolidate metadata to optimize read performance
-        self.cfg.logger.info(f"Dataset created successfully. Zarr file can be found at {self.path_dataset}")
+        if consolidate:
+            zarr.consolidate_metadata(self.path_dataset)  # consolidate metadata to optimize read performance
+            self.cfg.logger.info(f"Dataset created successfully. Zarr file can be found at {self.path_dataset}")
 
     def _finalize_setup(self):
         """Prepares the dataset for PyTorch training by optimizing memory and data access.
