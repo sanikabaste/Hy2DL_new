@@ -20,7 +20,7 @@
 # haicore clone lives directly at $HOME/Hy2DL_new (no Hy2DL_eduardo wrapper folder).
 cd "$HOME/Hy2DL_new/examples" || exit 1
 
-source "$HOME/miniconda3/etc/profile.d/conda.sh"
+source "$HOME/Hy2DL_working/miniconda3/etc/profile.d/conda.sh"
 conda activate sb_working_311
 
 python caravan_training.py
