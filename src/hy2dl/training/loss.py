@@ -89,7 +89,7 @@ class CRPS(BaseLoss):
             # e.g. [B, T, K, P] or [B, L, T, K, P]
             assert params["loc"].shape[-2] == 1, (
                 f"CRPS only supports a single logistic distribution, "
-                f"but got mixture size K={params.shape[-2]}"
+                f"but got mixture size K={params['loc'].shape[-2]}"
             )
     
     

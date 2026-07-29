@@ -1,4 +1,4 @@
-experiment_name: DRN
+experiment_name: MDN_CMAL_CH
 path_data: ../../../Hy2DL_dev-main/data/CAMELS_CH
 path_entities: ../../../Hy2DL_dev-main/data/basin_id/basins_camels_ch_196.txt
 dynamic_input:
@@ -43,24 +43,25 @@ testing_period:
 - '2000-10-01'
 - '2020-09-30'
 seq_length: 365
-hidden_size: 256
+hidden_size: 250
 batch_size_training: 256
 batch_size_evaluation: 1024
 initial_forget_bias: 3.0
 epochs: 30
 dropout_rate: 0.5
-learning_rate: 0.0001
+learning_rate: 0.0005
 validate_every: 1
 device: cuda:0
 num_workers: 8
-random_seed: 1357
 dataset: camels_ch
-model: cudalstm
-head: mdn
-distribution: logistic
-num_mixture_components: 1 # DRN using logictis distribution and CRPS only supports single distribution
-noise_level: 0.0
-loss : crps
+model: lstmmdn
+distribution: laplacian
+num_mixture_components: 3
+noise_level: 0.2
+loss : nll
 validation_metric:
 - nse
-- crps
+- nll
+testing_metrics:
+- nse
+- nll

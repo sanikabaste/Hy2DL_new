@@ -1,6 +1,6 @@
-experiment_name: DRN
+experiment_name: DRN_minAnthro
 path_data: ../../../Hy2DL_dev-main/data/CAMELS_CH
-path_entities: ../../../Hy2DL_dev-main/data/basin_id/basins_camels_ch_196.txt
+path_entities: ../../../Hy2DL_dev-main/data/basin_id/CH_streams_ZeroReservoirs.txt
 dynamic_input:
 - precipitation(mm/d)
 - temperature_min(degC)
@@ -35,12 +35,12 @@ static_input:
 - low_prec_dur
 training_period:
 - '1980-10-01'
-- '1995-09-30'
+- '2010-09-30'
 validation_period:
-- '1995-10-01'
-- '2000-09-30'
+- '2011-10-01'
+- '2016-09-30'
 testing_period:
-- '2000-10-01'
+- '2017-10-01'
 - '2020-09-30'
 seq_length: 365
 hidden_size: 256
