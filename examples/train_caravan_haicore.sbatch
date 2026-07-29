@@ -15,11 +15,12 @@
 # cap as uc3's gpu_h100. At epochs=10 (see caravan.yml) a run should fit well within that in a single job.
 # gres uses "gpu:full:1" (not "gpu:1") to match HAICORE's GRES naming for a full (non-MIG) GPU.
 #
-# Run from the examples/ directory (repo checkout). Uses an absolute path rather than $SLURM_SUBMIT_DIR /
-# $BASH_SOURCE, since SLURM executes a spooled copy of this script and neither reliably points back here.
-cd /pfs/data6/home/ka/ka_iwu/ka_si3685/Hy2DL_eduardo/Hy2DL_new/examples || exit 1
+# Run from the examples/ directory (repo checkout). Uses $HOME rather than $SLURM_SUBMIT_DIR / $BASH_SOURCE,
+# since SLURM executes a spooled copy of this script and neither reliably points back here. Unlike uc3, the
+# haicore clone lives directly at $HOME/Hy2DL_new (no Hy2DL_eduardo wrapper folder).
+cd "$HOME/Hy2DL_new/examples" || exit 1
 
-source /home/ka/ka_iwu/ka_si3685/miniconda3/etc/profile.d/conda.sh
+source "$HOME/miniconda3/etc/profile.d/conda.sh"
 conda activate sb_working_311
 
 python caravan_training.py
