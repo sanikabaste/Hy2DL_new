@@ -20,6 +20,14 @@
 # haicore clone lives directly at $HOME/Hy2DL_new (no Hy2DL_eduardo wrapper folder).
 cd "$HOME/Hy2DL_new/examples" || exit 1
 
+# HAICORE's default login/job environment auto-loads "devel/cuda/12.4", which prepends its
+# cuDNN 9.5.1 libs onto LD_LIBRARY_PATH ahead of the cuDNN 9.8.0 that pip-installed torch bundles
+# under ~/.local (site-packages/nvidia/cudnn). LD_LIBRARY_PATH wins over torch's own RPATH lookup,
+# so torch loads the older module cuDNN and fails with "cuDNN version incompatibility" as soon as
+# it touches the GPU. torch is fully self-contained (bundles its own CUDA/cuDNN/NCCL), so purge the
+# modules rather than trying to reorder LD_LIBRARY_PATH.
+module purge
+
 source "$HOME/Hy2DL_working/miniconda3/etc/profile.d/conda.sh"
 conda activate sb_working_311
 
