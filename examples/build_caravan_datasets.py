@@ -23,6 +23,7 @@ with open("configs/caravan.yml") as f:
     cfg_dict = yaml.safe_load(f)
 
 cfg_dict["path_save_folder"] = "../results/Caravan_datasets_for_drive"
+cfg_dict["device"] = "cpu"  # this script only builds datasets - no model/GPU involved, and it runs on the cpu partition
 
 config = Config(cfg_dict, base_dir=base_dir)
 config.init_experiment()
