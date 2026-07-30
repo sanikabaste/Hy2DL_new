@@ -39,8 +39,8 @@ batch_size_evaluation: 1024
 epochs: 10
 dropout_rate: 0.4
 learning_rate:
-  0: 5e-05
-  30: 5e-06
+  1: 5.0e-05
+  30: 5.0e-06
 validate_every: 1
 device: gpu
 num_workers: 1
