@@ -841,12 +841,11 @@ class BaseDataset(Dataset):
         data_array = np.zeros((len(self.gauge_id), len(dates), len(features)), dtype="float32")
 
         # Process each entity using dask
-        with (
-            LocalCluster(
-                n_workers=max(self.cfg.num_workers, 1), threads_per_worker=1, scheduler_port=0, dashboard_address=":0"
-            ) as cluster,
-            Client(cluster) as client,
-        ):
+        cluster = LocalCluster(
+            n_workers=max(self.cfg.num_workers, 1), threads_per_worker=1, scheduler_port=0, dashboard_address=":0"
+        )
+        client = Client(cluster)
+        try:
             futures = client.map(self._process_df, self.gauge_id, extract_values=True)
             # Create a mapping to place arrays in correct order
             future_to_idx = {future: idx for idx, future in enumerate(futures)}
@@ -856,6 +855,14 @@ class BaseDataset(Dataset):
             ):
                 idx = future_to_idx[future]
                 data_array[idx, :, :] = future.result()
+        finally:
+            # A slow-to-die worker can make shutdown itself raise (e.g. TimeoutError) even though every result
+            # above was already collected successfully, so don't let cleanup failures crash the run.
+            try:
+                client.close()
+                cluster.close()
+            except Exception as error:
+                self.cfg.logger.warning(f"Ignoring error while shutting down the Dask cluster: {error}")
 
         # Construct xarray Dataset
         self.ds_ts = xr.Dataset(
@@ -924,25 +931,25 @@ class BaseDataset(Dataset):
         gauge_idx = [np.where(zarr_ids == id)[0][0] for id in ids_to_process]
 
         # Process each entity using dask
+        cluster = LocalCluster(
+            n_workers=max(self.cfg.num_workers, 1), threads_per_worker=1, scheduler_port=0, dashboard_address=":0"
+        )
+        client = Client(cluster)
         try:
-            with (
-                LocalCluster(
-                    n_workers=max(self.cfg.num_workers, 1), threads_per_worker=1, scheduler_port=0, dashboard_address=":0"
-                ) as cluster,
-                Client(cluster) as client,
+            futures = client.map(self._write_df_to_zarr, ids_to_process, gauge_idx)  # Run function
+            # Monitor progress
+            for future in tqdm(
+                as_completed(futures), total=len(futures), desc="Processing gauges", unit="entity", ascii=True
             ):
-                futures = client.map(self._write_df_to_zarr, ids_to_process, gauge_idx)  # Run function
-                # Monitor progress
-                for future in tqdm(
-                    as_completed(futures), total=len(futures), desc="Processing gauges", unit="entity", ascii=True
-                ):
-                    future.result()
-        except TimeoutError:
-            # Cluster teardown (LocalCluster/Client __exit__) can time out waiting for a worker process to
-            # exit - observed on some nodes/filesystems even though every entity above already finished
-            # writing successfully (future.result() would have raised for any real processing failure before
-            # reaching here). Safe to ignore: the data is already on disk by this point.
-            self.cfg.logger.warning("Dask cluster teardown timed out after all entities were processed - continuing.")
+                future.result()
+        finally:
+            # A slow-to-die worker can make shutdown itself raise (e.g. TimeoutError) even though every result
+            # above was already collected successfully, so don't let cleanup failures crash the run.
+            try:
+                client.close()
+                cluster.close()
+            except Exception as error:
+                self.cfg.logger.warning(f"Ignoring error while shutting down the Dask cluster: {error}")
 
         if consolidate:
             zarr.consolidate_metadata(self.path_dataset)  # consolidate metadata to optimize read performance
