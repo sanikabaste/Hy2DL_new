@@ -19,33 +19,39 @@ from hy2dl.utils.config import Config
 os.chdir(sys.path[0])  # Change working directory to the script's location
 base_dir = Path.cwd().resolve()
 
-with open("configs/caravan.yml") as f:
-    cfg_dict = yaml.safe_load(f)
+# Everything below must stay inside this guard: dask spawns worker processes that re-import this module in a
+# fresh interpreter, and without the guard they would re-run the whole script (including dataset creation)
+# recursively instead of just executing as workers.
+if __name__ == "__main__":
+    with open("configs/caravan.yml") as f:
+        cfg_dict = yaml.safe_load(f)
 
-cfg_dict["path_save_folder"] = "../results/Caravan_datasets_for_drive"
-cfg_dict["device"] = "cpu"  # this script only builds datasets - no model/GPU involved, and it runs on the cpu partition
+    cfg_dict["path_save_folder"] = "../results/Caravan_datasets_for_drive"
+    cfg_dict["device"] = "cpu"  # this script only builds datasets - no model/GPU involved, runs on the cpu partition
+    cfg_dict["dataset_in_ram"] = False  # dataset_in_ram defaults to True, which would skip writing zarr to disk
+    # entirely - the whole point here is to produce actual zarr files to tar and upload to Drive.
 
-config = Config(cfg_dict, base_dir=base_dir)
-config.init_experiment()
+    config = Config(cfg_dict, base_dir=base_dir)
+    config.init_experiment()
 
-config.path_dataset_training = config.path_save_folder / "dataset_training.zarr"
-config.path_dataset_validation = config.path_save_folder / "dataset_validation.zarr"
-config.path_dataset_testing = config.path_save_folder / "dataset_testing.zarr"
+    config.path_dataset_training = config.path_save_folder / "dataset_training.zarr"
+    config.path_dataset_validation = config.path_save_folder / "dataset_validation.zarr"
+    config.path_dataset_testing = config.path_save_folder / "dataset_testing.zarr"
 
-config.dump()
+    config.dump()
 
-Dataset = get_dataset(config)
+    Dataset = get_dataset(config)
 
-print("Creating training dataset...")
-training_dataset = Dataset(cfg=config, time_period="training")
-training_dataset.setup_dataset()
+    print("Creating training dataset...")
+    training_dataset = Dataset(cfg=config, time_period="training")
+    training_dataset.setup_dataset()
 
-print("Creating validation dataset...")
-validation_dataset = Dataset(cfg=config, time_period="validation")
-validation_dataset.setup_dataset(check_nan=False, path_scaler=config.path_save_folder / "scaler.yml")
+    print("Creating validation dataset...")
+    validation_dataset = Dataset(cfg=config, time_period="validation")
+    validation_dataset.setup_dataset(check_nan=False, path_scaler=config.path_save_folder / "scaler.yml")
 
-print("Creating testing dataset...")
-testing_dataset = Dataset(cfg=config, time_period="testing")
-testing_dataset.setup_dataset(check_nan=False, path_scaler=config.path_save_folder / "scaler.yml")
+    print("Creating testing dataset...")
+    testing_dataset = Dataset(cfg=config, time_period="testing")
+    testing_dataset.setup_dataset(check_nan=False, path_scaler=config.path_save_folder / "scaler.yml")
 
-print(f"Done. Zarr datasets created at {config.path_save_folder}")
+    print(f"Done. Zarr datasets created at {config.path_save_folder}")
