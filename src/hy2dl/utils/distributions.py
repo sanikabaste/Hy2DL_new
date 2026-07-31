@@ -7,6 +7,16 @@ import torch.nn.functional as F
 PI = torch.tensor(math.pi)
 
 
+def _std_normal_cdf(z: torch.Tensor) -> torch.Tensor:
+    """Standard normal CDF, Phi(z)."""
+    return 0.5 * (1 + torch.erf(z / math.sqrt(2)))
+
+
+def _std_normal_pdf(z: torch.Tensor) -> torch.Tensor:
+    """Standard normal PDF, phi(z)."""
+    return torch.exp(-0.5 * z.pow(2)) / torch.sqrt(2 * PI)
+
+
 class BaseDistribution(nn.Module):
     """Base class for mixture distributions.
 
@@ -368,6 +378,34 @@ class GaussianMixture(BaseDistribution):
         log_w = torch.log(torch.clamp(weights, min=1e-10))
         log_p = torch.logsumexp(log_p + log_w, dim=-2)  # [B, N, T]
         return log_p
+
+    def calc_crps(self, params: dict[str, torch.Tensor], weights: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+        # Closed-form CRPS of a Gaussian mixture (Grimit et al. 2006; Gneiting & Raftery 2007):
+        # CRPS = sum_k w_k * A(x - loc_k, scale_k) - 0.5 * sum_k sum_l w_k * w_l * A(loc_k - loc_l, sqrt(scale_k^2 + scale_l^2))
+        # where A(mu, sigma) = mu * (2*Phi(mu/sigma) - 1) + 2*sigma*phi(mu/sigma) is E|Z - mu| for Z ~ N(0, sigma^2).
+        # Unlike the log-pdf, CRPS is not a simple weighted sum over components: the quadratic (E|X-X'|) term in
+        # its definition requires this extra pairwise sum over all component combinations.
+        loc, scale = params["loc"], params["scale"]
+        scale = torch.clamp(scale, min=1e-6)
+
+        # First term: E|X - x| = sum_k w_k * A(x - loc_k, scale_k)
+        diff = x.unsqueeze(-2) - loc  # [B, N, K, T]
+        z = diff / scale
+        term1 = diff * (2 * _std_normal_cdf(z) - 1) + 2 * scale * _std_normal_pdf(z)
+        term1 = (weights * term1).sum(dim=-2)  # [B, N, T]
+
+        # Second term: 0.5 * E|X - X'| = 0.5 * sum_k sum_l w_k * w_l * A(loc_k - loc_l, sqrt(scale_k^2 + scale_l^2))
+        loc_i, loc_j = loc.unsqueeze(-2), loc.unsqueeze(-3)  # [B, N, K, 1, T], [B, N, 1, K, T]
+        scale_i, scale_j = scale.unsqueeze(-2), scale.unsqueeze(-3)
+        w_i, w_j = weights.unsqueeze(-2), weights.unsqueeze(-3)
+
+        mu_diff = loc_i - loc_j  # [B, N, K, K, T]
+        sigma_pair = torch.clamp(torch.sqrt(scale_i.pow(2) + scale_j.pow(2)), min=1e-6)
+        z_pair = mu_diff / sigma_pair
+        term2 = mu_diff * (2 * _std_normal_cdf(z_pair) - 1) + 2 * sigma_pair * _std_normal_pdf(z_pair)
+        term2 = (w_i * w_j * term2).sum(dim=(-3, -2))  # [B, N, T]
+
+        return term1 - 0.5 * term2
 
     def map_parameters(
         self, raw_params: torch.Tensor, num_mixture_components: int, num_targets: int
